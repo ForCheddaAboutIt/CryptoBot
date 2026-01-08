@@ -1,0 +1,2 @@
+# CryptoBot
+All my crytobots!
