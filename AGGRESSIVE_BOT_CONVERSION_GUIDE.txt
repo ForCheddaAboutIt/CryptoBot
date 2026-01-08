@@ -1,0 +1,154 @@
+
+================================================================================
+AGGRESSIVE BOT CONVERSION GUIDE
+================================================================================
+
+How to turn your conservative trading_bot.py into an AGGRESSIVE version:
+
+METHOD: Copy trading_bot.py → trading_bot_aggressive.py, then change ONLY these:
+
+================================================================================
+SECTION 1: FILE PATHS (Lines ~10-12)
+================================================================================
+
+CONSERVATIVE:
+STATE_FILE = r"C:\Users\Luke Taylor\OneDrive\Documents\Trading\Fun\bot_state.json"
+LOG_DIR = r"C:\Users\Luke Taylor\OneDrive\Documents\Trading\Fun\logs"
+
+AGGRESSIVE:
+STATE_FILE = r"C:\Users\Luke Taylor\OneDrive\Documents\Trading\Fun\bot_state_aggressive.json"
+LOG_DIR = r"C:\Users\Luke Taylor\OneDrive\Documents\Trading\Fun\logs_aggressive"
+
+WHY: Keeps aggressive bot data separate from conservative bot
+
+================================================================================
+SECTION 2: TRADING PARAMETERS (Lines ~27-35)
+================================================================================
+
+CONSERVATIVE:
+MAX_TRADES_PER_DAY = 2
+MAX_POSITION_PCT = 0.50
+MIN_TRADE_USDC = 2.0
+RESERVE_CASH_PCT = 0.15
+MAX_DAILY_LOSS_PCT = 0.10
+PROFIT_TARGET_PCT = 0.08
+STOP_LOSS_PCT = 0.05
+
+AGGRESSIVE:
+MAX_TRADES_PER_DAY = 8           # 4x more trades
+MAX_POSITION_PCT = 0.35          # Smaller positions (allows 2-3 at once)
+MIN_TRADE_USDC = 0.50            # Lower minimum (trade more often)
+RESERVE_CASH_PCT = 0.05          # Keep less cash (deploy more)
+MAX_DAILY_LOSS_PCT = 0.25        # Tolerate bigger losses
+PROFIT_TARGET_PCT = 0.12         # Bigger profit targets
+STOP_LOSS_PCT = 0.08             # Wider stops
+
+WHY: Aggressive = more trades, bigger swings, higher risk/reward
+
+================================================================================
+SECTION 3: SELL PROMPT (Around line 280-290)
+================================================================================
+
+CONSERVATIVE:
+system = '''You are a crypto day/swing trading assistant. Analyze positions.
+
+STRATEGY: 1-5 day momentum plays with strict risk management.
+- SELL to take profit if position is up 8%+ 
+- SELL to cut losses if position is down 5%+
+- SELL if momentum/news turns negative
+- Otherwise HOLD for the trade to develop
+
+Return ONLY valid JSON...'''
+
+AGGRESSIVE:
+system = '''You are an AGGRESSIVE crypto momentum scalper.
+
+STRATEGY: Hunt explosive 15-30% gains in 1-5 days.
+- SELL at 12%+ profit to lock gains OR partial sell 50-70%
+- SELL at 8% loss to cut (wider stop for volatility)
+- SELL on major breakdowns or better opportunities
+- Otherwise HOLD aggressively - small dips are noise
+
+Return ONLY valid JSON...'''
+
+WHY: Aggressive = chase bigger gains, tolerate bigger swings
+
+================================================================================
+SECTION 4: BUY PROMPT (Around line 320-330)
+================================================================================
+
+CONSERVATIVE:
+system = f'''You are a crypto day/swing trading assistant managing ${portfolio_value:.0f}.
+
+STRATEGY: Look for 1-5 day plays with 8-15% upside potential.
+- Focus on coins with recent breakouts, positive news, or strong volume
+- Prefer liquid assets (BTC, ETH, SOL, MATIC, AVAX, LINK, etc.)
+- Max 50% position size
+- This is experimental capital - take calculated swings
+
+Return ONLY valid JSON...'''
+
+AGGRESSIVE:
+system = f'''You are an AGGRESSIVE crypto hunter managing ${portfolio_value:.0f}.
+
+STRATEGY: Find EXPLOSIVE 15-30% gains in 1-5 days.
+- Target: Breakouts with volume surge, trending narratives, momentum acceleration
+- PRIORITIZE mid-caps: SOL, MATIC, AVAX, LINK, ATOM, UNI, AAVE (NOT BTC/ETH - too slow)
+- Coins up 5-15% in 24h with continuation potential
+- Max 35% per position, up to 3 simultaneous positions
+- IGNORE downside risk - hunt the rocket ships
+
+Return ONLY valid JSON...'''
+
+WHY: Aggressive = focus on explosive mid-caps, ignore slow movers like BTC
+
+================================================================================
+SECTION 5: HEADER MESSAGE (Line ~240 in main())
+================================================================================
+
+CONSERVATIVE:
+print("COINBASE AI TRADING BOT (Perplexity)")
+print("STRATEGY: Day/Swing Trading | 8% profit target | 5% stop loss")
+
+AGGRESSIVE:
+print("AGGRESSIVE COINBASE AI TRADING BOT")
+print("STRATEGY: Momentum Scalping | 12% profit target | 8% stop loss | 8 trades/day")
+
+WHY: Clear labeling so you know which bot is running
+
+================================================================================
+QUICK COPY-PASTE CHECKLIST
+================================================================================
+
+1. Copy trading_bot.py to trading_bot_aggressive.py
+2. Find & Replace:
+   - bot_state.json → bot_state_aggressive.json
+   - logs" → logs_aggressive"
+3. Change line ~29: MAX_TRADES_PER_DAY = 2 → 8
+4. Change line ~30: MAX_POSITION_PCT = 0.50 → 0.35
+5. Change line ~31: MIN_TRADE_USDC = 2.0 → 0.50
+6. Change line ~32: RESERVE_CASH_PCT = 0.15 → 0.05
+7. Change line ~33: MAX_DAILY_LOSS_PCT = 0.10 → 0.25
+8. Change line ~35: PROFIT_TARGET_PCT = 0.08 → 0.12
+9. Change line ~36: STOP_LOSS_PCT = 0.05 → 0.08
+10. Update sell prompt: "8%+ profit" → "12%+ profit", "5% loss" → "8% loss"
+11. Update buy prompt: "8-15% upside" → "15-30% EXPLOSIVE gains"
+12. Update buy prompt: Add "PRIORITIZE: SOL, MATIC, AVAX, LINK"
+13. Update buy prompt: Add "AVOID: BTC, ETH (too slow)"
+
+================================================================================
+RESULT
+================================================================================
+
+You now have TWO bots:
+- trading_bot.py (Conservative: 2 trades/day, 8% targets, safer)
+- trading_bot_aggressive.py (Aggressive: 8 trades/day, 12% targets, risky)
+
+Run both side-by-side with different capital to compare performance!
+
+Conservative: Use $35 to test
+Aggressive: Use $20-50 "throw away" money
+
+After 1-2 weeks, see which performs better.
+
+================================================================================
