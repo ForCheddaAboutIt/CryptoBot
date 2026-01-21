@@ -39,34 +39,58 @@ logger = logging.getLogger(__name__)
 async def find_current_btc_15min_market_async() -> str:
     """
     Async active market finder using Polymarket Gamma API.
-    Prioritizes CURRENTLY ACTIVE markets.
-    If none active, picks the SOONEST upcoming market.
+    
+    CRITICAL FIX: Timezone Synchronization
+    We calculate the 'Time Offset' between your local computer and 
+    Polymarket's server. This fixes issues where local time zones (like MST)
+    cause the bot to think current markets are in the future.
     """
     logger.info("Searching for current BTC 15min market via Gamma API...")
     
     url = "https://gamma-api.polymarket.com/events"
     
-    # Fetch enough events to ensure we find the current one among the future ones
     params = {
         "closed": "false",
-        "q": "BTC",       # Search for BTC related events
-        "limit": "100",   # Fetch enough to see today's and tomorrow's
+        "q": "btc-updown-15m", 
+        "limit": "500",      
         "order": "startDate",
-        "ascending": "false" # Newest first (usually tomorrow's markets)
+        "ascending": "false" # Newest first
     }
 
     async with httpx.AsyncClient() as client:
         try:
-            resp = await client.get(url, params=params, timeout=10.0)
+            resp = await client.get(url, params=params, timeout=15.0)
             resp.raise_for_status()
-            data = resp.json()
             
-            # Regex to match the slug format (e.g., btc-updown-15m-1737409800)
+            # --- CLOCK SYNC FIX ---
+            # 1. Get Server Time from Headers (RFC 2822 format)
+            server_date_str = resp.headers.get("date")
+            if server_date_str:
+                from email.utils import parsedate_to_datetime
+                server_dt = parsedate_to_datetime(server_date_str)
+                server_ts = server_dt.timestamp()
+                local_ts = time.time()
+                
+                # Calculate Offset (Server - Local)
+                time_offset = server_ts - local_ts
+                
+                # Only warn if drift is significant (> 60 seconds)
+                if abs(time_offset) > 60:
+                    logger.warning(f"⚠️ Clock Drift Detected! Local time is off by {time_offset/3600:.1f} hours.")
+                    logger.warning(f"   Adjusting bot time by +{time_offset:.0f} seconds to match Server.")
+            else:
+                time_offset = 0
+                logger.warning("Could not sync time with server. Using local clock.")
+
+            # 2. Use SYNCED time for all checks
+            now_ts = time.time() + time_offset
+            # ----------------------
+
+            data = resp.json()
             pattern = r'btc-updown-15m-(\d+)'
             
             active_markets = []
             future_markets = []
-            now_ts = time.time()
             
             for event in data:
                 slug = event.get('slug', '')
@@ -74,54 +98,38 @@ async def find_current_btc_15min_market_async() -> str:
                 
                 if match:
                     start_ts = int(match.group(1))
-                    close_ts = start_ts + 900  # Markets last 15 mins (900s)
+                    close_ts = start_ts + 900  # 15 mins
                     
+                    # 1. LIVE NOW (Using Synced Time)
                     if start_ts <= now_ts < close_ts:
-                        # Market is currently LIVE (Started but not ended)
                         active_markets.append((start_ts, slug))
+                    
+                    # 2. UPCOMING (Using Synced Time)
                     elif start_ts > now_ts:
-                        # Market starts in the future
                         future_markets.append((start_ts, slug))
-            
-            # LOGIC FIX:
-            # 1. Prefer Active Markets (Pick the one that started most recently)
+
+            # --- SELECTION LOGIC ---
+
             if active_markets:
-                # Sort descending (largest timestamp first) -> Most recently started
                 active_markets.sort(key=lambda x: x[0], reverse=True)
                 chosen_slug = active_markets[0][1]
                 logger.info(f"✅ Found ACTIVE market: {chosen_slug}")
                 return chosen_slug
 
-            # 2. Fallback to Future Markets (Pick the one starting SOONEST)
             if future_markets:
-                # Sort ascending (smallest timestamp first) -> Starts soonest
                 future_markets.sort(key=lambda x: x[0])
                 chosen_slug = future_markets[0][1]
-                logger.info(f"⚠️ No active market. Picking UPCOMING market: {chosen_slug}")
+                
+                wait_time = (future_markets[0][0] - now_ts) / 60
+                logger.info(f"⚠️ No active market. Picking UPCOMING market (starts in {wait_time:.1f}m): {chosen_slug}")
                 return chosen_slug
 
-            # 3. Fallback search (strict "15m" query) if "BTC" missed it
-            logger.warning("No BTC markets found. Trying strict '15m' search...")
-            params['q'] = "15m"
-            resp = await client.get(url, params=params, timeout=10.0)
-            data = resp.json()
-            
-            for event in data:
-                slug = event.get('slug', '')
-                match = re.search(pattern, slug)
-                if match:
-                    start_ts = int(match.group(1))
-                    # Just accept the first valid future or active one we find
-                    if start_ts + 900 > now_ts:
-                         logger.info(f"✅ Found fallback market: {slug}")
-                         return slug
-
-            raise RuntimeError("No active or upcoming BTC 15min market found in API")
+            raise RuntimeError(f"No relevant BTC 15min markets found")
             
         except Exception as e:
             logger.error(f"Error searching for market via API: {e}")
             raise
-        
+               
 class SimpleArbitrageBot:
     """Simple bot implementing Jeremy Whittaker's strategy."""
     
